@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "scripts/**/*.ts",
+    "src/env.ts",
+    "src/lib/types.ts",
+    "src/lib/db/repositories/_tx.ts",
+    "src/lib/db/repositories/outbox.repo.ts",
+    "src/lib/db/sqlite.ts",
+    "src/lib/db/mongo.ts",
+    "src/lib/db/mongo-models.ts",
+    "src/lib/sync.ts"
+  ]
+}

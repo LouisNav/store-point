@@ -1,0 +1,22 @@
+{
+  "name": "Store Point",
+  "short_name": "Store Point",
+  "description": "Resilient multi-tenant store management with offline-first sync.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1220",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "en",
+  "prefer_related_applications": false
+}
