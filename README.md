@@ -11,6 +11,7 @@ A **resilient, multi-tenant store-management web app** for small shops and their
 ### For the Root Admin (you)
 - **Multi-store** from one account. Create separate tenants for each shop.
 - **Custom branding per store** — store name, accent color, logo, tagline.
+- **Custom currency per store** — any ISO code plus an optional display symbol (₦, $, KSh, د.ك, …) so the register works anywhere.
 - **Staff management** — invite team, assign roles, suspend/remove.
 - **Full financials** — cost, sell price, profit margin, daily reports.
 - **Stores never lose data** — even if MongoDB is unreachable for days.
@@ -131,20 +132,27 @@ npm install
 ```bash
 cp .env.example .env
 # Edit .env:
-#   ROOT_ADMIN_EMAIL    = you@example.com
-#   ROOT_ADMIN_PASSWORD = StrongPass!123
-#   ROOT_ADMIN_NAME     = Your Name
-#   SESSION_PASSWORD    = (32+ char random — `openssl rand -hex 32`)
+#   SESSION_PASSWORD    = (32+ char random — `openssl rand -hex 32`)  ← required
+#   ROOT_ADMIN_EMAIL    = you@example.com     (optional — only for `npm run seed`)
+#   ROOT_ADMIN_PASSWORD = StrongPass!123      (optional — only for `npm run seed`)
+#   ROOT_ADMIN_NAME     = Your Name            (optional)
+#   SEED_STORE_CURRENCY = USD                  (optional — sample store currency)
+#   SEED_STORE_CURRENCY_SYMBOL = $             (optional — override symbol)
 #   PORT                = 3000 (optional; defaults to 3000)
 # Optional:
 #   MONGODB_URI = mongodb+srv://user:pass@cluster.mongodb.net/storepoint
 ```
+
+> Skip the `ROOT_ADMIN_*` values if you'd rather create your first account from the
+> browser: start the app and open **http://localhost:3000/setup**.
 
 ### 3. Seed (creates root admin + sample store + demo products)
 
 ```bash
 npm run seed
 ```
+
+Demo product prices scale to `SEED_STORE_CURRENCY`, so the sample store looks realistic whether you're in Lagos (₦), Nairobi (KSh), or New York ($).
 
 ### 4. Run dev (Next.js + sync worker)
 
@@ -188,7 +196,8 @@ Docker packages the Next.js web server and the offline sync worker from the same
 
 ```bash
 cp .env.example .env
-# Edit .env and set SESSION_PASSWORD, ROOT_ADMIN_EMAIL, and ROOT_ADMIN_PASSWORD.
+# Edit .env and set SESSION_PASSWORD (required). ROOT_ADMIN_* are optional —
+# if omitted, create the first account from the /setup screen in your browser.
 # Set MONGODB_URI if cloud synchronization is desired; leave it empty for offline mode.
 
 docker compose up --build -d
@@ -351,7 +360,7 @@ data/                         # SQLite files (gitignored)
 ## 🔐 Security notes (v1)
 
 - Sessions are encrypted cookies (`iron-session`). Set a long random `SESSION_PASSWORD` in production.
-- Root admin is **env-seeded** only — there's no self-serve signup by design.
+- The first account is created via the one-time `/setup` screen or `npm run seed` — there's no open self-serve signup.
 - All mutations require a session + matching store membership + permission.
 - Soft delete everywhere means even a "deleted" record is recoverable from the SQLite file.
 - HTTPS / reverse-proxy with TLS is your responsibility in front of the app.
@@ -363,10 +372,9 @@ data/                         # SQLite files (gitignored)
 - **Receipts**: PDF + SMS receipts.
 - **Mobile-friendly POS**: PWA install, barcode scanner via camera.
 - **Inventory transfers** between stores.
-- **Multi-currency** with per-store rates.
+- **Multi-currency** with per-store exchange rates for consolidated reporting.
 - **Purchase orders** for restocking.
 - **Email/WhatsApp exports** for daily summaries.
-- **Audit log UI** beyond the messaging audit preview (broader platform event history).
 - **Customer credit** / layaway tracking.
 - **Automatic on-disk backup** with `sqlite3 .backup` every hour → S3.
 

@@ -17,13 +17,13 @@ export function SeedButton({ available }: { available: boolean }) {
       toast.error(r.error);
       return;
     }
-    toast.success('Root admin created — please sign in.');
+    toast.success('Account and sample store created — please sign in.');
     router.push('/login');
   }
   return (
     <Button onClick={go} disabled={!available || busy} size="lg">
       <Rocket className="h-4 w-4" />
-      {busy ? 'Bootstrapping…' : 'Create root admin & sign in'}
+      {busy ? 'Bootstrapping…' : 'Create account & sample store'}
     </Button>
   );
 }

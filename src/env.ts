@@ -8,9 +8,17 @@ const schema = z.object({
   SESSION_PASSWORD: z
     .string()
     .min(32, 'SESSION_PASSWORD must be at least 32 characters'),
-  ROOT_ADMIN_EMAIL: z.string().email(),
-  ROOT_ADMIN_PASSWORD: z.string().min(8, 'ROOT_ADMIN_PASSWORD must be ≥ 8 chars'),
-  ROOT_ADMIN_NAME: z.string().min(1).default('Root'),
+  // Root admin credentials are OPTIONAL. They are only consumed by
+  // `npm run seed` and the "bootstrap from .env" button. When absent, the
+  // operator creates the first account from the in-browser /setup screen.
+  ROOT_ADMIN_EMAIL: z.union([z.literal(''), z.string().email()]).default(''),
+  ROOT_ADMIN_PASSWORD: z
+    .union([z.literal(''), z.string().min(8, 'ROOT_ADMIN_PASSWORD must be ≥ 8 chars')])
+    .default(''),
+  ROOT_ADMIN_NAME: z.string().default('Root'),
+  // Optional: currency for the sample store created by `npm run seed`.
+  SEED_STORE_CURRENCY: z.string().default('USD'),
+  SEED_STORE_CURRENCY_SYMBOL: z.string().default(''),
   MONGODB_URI: z.string().optional().default(''),
   MONGODB_DB: z.string().default('storepoint'),
   SQLITE_PATH: z.string().default('./data/storepoint.db'),

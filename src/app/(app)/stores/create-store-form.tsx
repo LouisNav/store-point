@@ -18,6 +18,7 @@ const schema = z.object({
     .max(40)
     .regex(/^[a-z0-9-]+$/, 'Lowercase letters, digits, hyphens only'),
   currency: z.string().min(1).max(8).default('USD'),
+  currencySymbol: z.string().max(10).optional().default(''),
 });
 type Values = z.infer<typeof schema>;
 
@@ -28,7 +29,7 @@ export function CreateStoreForm({ onClose }: { onClose?: () => void }) {
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { currency: 'USD' } });
+  } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { currency: 'USD', currencySymbol: '' } });
 
   async function onSubmit(v: Values) {
     const fd = new FormData();
@@ -58,10 +59,17 @@ export function CreateStoreForm({ onClose }: { onClose?: () => void }) {
         <Input placeholder="greenmarket-apapa" {...register('slug')} />
         {errors.slug && <p className="mt-1 text-xs text-destructive">{errors.slug.message}</p>}
       </div>
-      <div>
-        <FormLabel hint="3-letter currency code — USD, NGN, KES, GHS, ZAR, etc.">Currency</FormLabel>
-        <Input {...register('currency')} />
-        {errors.currency && <p className="mt-1 text-xs text-destructive">{errors.currency.message}</p>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <FormLabel hint="3-letter code — USD, NGN, KES, or any custom code">Currency code</FormLabel>
+          <Input {...register('currency')} placeholder="USD" />
+          {errors.currency && <p className="mt-1 text-xs text-destructive">{errors.currency.message}</p>}
+        </div>
+        <div>
+          <FormLabel hint="Optional display symbol, e.g. ₦, $, KSh, د.ك">Currency symbol</FormLabel>
+          <Input {...register('currencySymbol')} placeholder="Auto" />
+          {errors.currencySymbol && <p className="mt-1 text-xs text-destructive">{errors.currencySymbol.message}</p>}
+        </div>
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? 'Creating…' : 'Create store'}

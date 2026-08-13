@@ -7,8 +7,12 @@ import { nowISO } from '@/lib/types';
 import { newId } from '@/lib/ids';
 import { usersRepo } from '@/lib/db/repositories/users.repo';
 import { membershipsRepo } from '@/lib/db/repositories/memberships.repo';
+import { storesRepo } from '@/lib/db/repositories/stores.repo';
+import { productsRepo } from '@/lib/db/repositories/products.repo';
 import { auditRepo } from '@/lib/db/repositories/audit.repo';
+import { demoProducts } from '@/lib/demo-data';
 import { isRootUser, requireUser } from '@/lib/auth/guards';
+import { hasAnyUser } from '@/lib/auth/bootstrap';
 import { can } from '@/lib/rbac';
 import { Permission } from '@/lib/rbac';
 import { ROLES, type Role } from '@/lib/types';
@@ -163,14 +167,29 @@ export async function removeMembership(membershipId: string) {
 // ---- Seed helpers (also used by /setup page) ----
 
 export async function bootstrapRootFromEnv() {
-  const session = await requireUser();
-  // Anyone can call this only if there are zero users (we check before).
-  const existing = usersRepo.list();
-  if (existing.length > 0) return { error: 'Already initialized.' };
+  // This runs on the public /setup screen before any account exists, so there
+  // is no session to require — guard on the user table instead.
+  if (await hasAnyUser()) return { error: 'Already initialized.' };
   const email = process.env.ROOT_ADMIN_EMAIL ?? '';
   const password = process.env.ROOT_ADMIN_PASSWORD ?? '';
   const name = process.env.ROOT_ADMIN_NAME ?? 'Root';
   if (!email || !password) return { error: 'ROOT_ADMIN_EMAIL / ROOT_ADMIN_PASSWORD missing in .env.' };
-  await usersRepo.create({ email, password, name, isRoot: true });
+
+  const root = await usersRepo.create({ email, password, name, isRoot: true });
+
+  // Mirror the manual + seed flows so every bootstrap path leaves the operator
+  // in the same state: a root account, a sample store, and demo products.
+  const currency = (process.env.SEED_STORE_CURRENCY ?? 'USD').trim().toUpperCase() || 'USD';
+  const symbol = process.env.SEED_STORE_CURRENCY_SYMBOL?.trim() ?? '';
+  const slug = `store-${Math.random().toString(36).slice(2, 6)}-${Date.now().toString(36).slice(-4)}`;
+  const store = storesRepo.create({
+    slug,
+    name: 'Greenmarket Demo',
+    currency,
+    brand: { accent: '#10b981', tagline: 'Fresh. Local. Daily.', currencySymbol: symbol || undefined },
+  });
+  membershipsRepo.upsert(root.id, store.id, 'ROOT_ADMIN');
+  for (const p of demoProducts(currency)) productsRepo.create(store.id, p);
+
   return { ok: true };
 }

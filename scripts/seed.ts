@@ -30,10 +30,19 @@ import { storesRepo } from '../src/lib/db/repositories/stores.repo';
 import { membershipsRepo } from '../src/lib/db/repositories/memberships.repo';
 import { productsRepo } from '../src/lib/db/repositories/products.repo';
 import { getDB } from '../src/lib/db/sqlite';
+import { demoProducts } from '../src/lib/demo-data';
 
 async function main() {
   const cfg = env();
   getDB(); // runs migrations
+
+  if (!cfg.ROOT_ADMIN_EMAIL || !cfg.ROOT_ADMIN_PASSWORD) {
+    console.error(
+      '✗ ROOT_ADMIN_EMAIL and ROOT_ADMIN_PASSWORD are required to run `npm run seed`.\n' +
+      '  Set them in your .env file, or open /setup in your browser and create the first account there instead.',
+    );
+    process.exit(1);
+  }
 
   console.log('▸ Seeding…');
   let root: Awaited<ReturnType<typeof usersRepo.create>> | undefined;
@@ -65,13 +74,14 @@ async function main() {
     store = storesRepo.create({
       slug: 'greenmarket-demo',
       name: 'Greenmarket Demo',
-      currency: cfg.ROOT_ADMIN_NAME.includes('NGN') ? 'NGN' : 'USD',
+      currency: cfg.SEED_STORE_CURRENCY,
       brand: {
         accent: '#10b981',
         tagline: 'Fresh. Local. Daily.',
+        currencySymbol: cfg.SEED_STORE_CURRENCY_SYMBOL || undefined,
       },
     });
-    console.log(`✓ Sample store created: ${store.name} (slug: ${store.slug})`);
+    console.log(`✓ Sample store created: ${store.name} (slug: ${store.slug}, currency: ${store.currency})`);
   } else {
     console.log(`✓ Sample store already exists: ${store.name}`);
   }
@@ -82,18 +92,11 @@ async function main() {
   // Seed products (only if store has none).
   const existingProducts = productsRepo.list(store.id);
   if (existingProducts.length === 0) {
-    const demo: Array<{ sku: string; name: string; costCents: number; sellCents: number; stockQty: number; lowStockThreshold?: number; description?: string }> = [
-      { sku: 'RICE-5KG', name: 'Premium Rice 5kg', costCents: 4500, sellCents: 5500, stockQty: 24, description: 'Long-grain white rice' },
-      { sku: 'OIL-1L', name: 'Palm Oil 1L', costCents: 1200, sellCents: 1700, stockQty: 50 },
-      { sku: 'BEANS-2KG', name: 'Brown Beans 2kg', costCents: 2200, sellCents: 2900, stockQty: 18, lowStockThreshold: 10 },
-      { sku: 'SUGAR-1KG', name: 'Sugar 1kg', costCents: 900, sellCents: 1300, stockQty: 36 },
-      { sku: 'MILK-1L', name: 'Long-life Milk 1L', costCents: 1100, sellCents: 1500, stockQty: 12, lowStockThreshold: 6 },
-      { sku: 'BREAD-W', name: 'Whole-wheat Bread', costCents: 600, sellCents: 950, stockQty: 8, lowStockThreshold: 10 },
-    ];
+    const demo = demoProducts(cfg.SEED_STORE_CURRENCY);
     for (const p of demo) {
       productsRepo.create(store.id, p);
     }
-    console.log(`✓ ${demo.length} demo products added`);
+    console.log(`✓ ${demo.length} demo products added (currency: ${cfg.SEED_STORE_CURRENCY})`);
   } else {
     console.log(`✓ ${existingProducts.length} products already in store`);
   }

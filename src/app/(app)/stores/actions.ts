@@ -14,7 +14,8 @@ const schema = z.object({
     .min(2)
     .max(40)
     .regex(/^[a-z0-9-]+$/, 'Lowercase letters, digits, hyphens only'),
-  currency: z.string().min(1).max(8).default('USD'),
+  currency: z.string().trim().min(1).max(8).transform((v) => v.toUpperCase()).default('USD'),
+  currencySymbol: z.string().trim().max(10).optional().default(''),
 });
 
 export async function createStore(_prev: unknown, fd: FormData) {
@@ -33,7 +34,12 @@ export async function createStore(_prev: unknown, fd: FormData) {
   if (storesRepo.bySlug(parsed.data.slug)) {
     return { error: 'That slug is already taken.' };
   }
-  const store = storesRepo.create(parsed.data);
+  const store = storesRepo.create({
+    name: parsed.data.name,
+    slug: parsed.data.slug,
+    currency: parsed.data.currency,
+    brand: { currencySymbol: parsed.data.currencySymbol || undefined },
+  });
   membershipsRepo.upsert(session.userId, store.id, 'ROOT_ADMIN');
   session.memberships = [
     ...(session.memberships ?? []),

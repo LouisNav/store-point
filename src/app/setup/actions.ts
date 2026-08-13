@@ -5,13 +5,21 @@ import { storesRepo } from '@/lib/db/repositories/stores.repo';
 import { membershipsRepo } from '@/lib/db/repositories/memberships.repo';
 import { productsRepo } from '@/lib/db/repositories/products.repo';
 import { hasAnyUser } from '@/lib/auth/bootstrap';
+import { demoProducts } from '@/lib/demo-data';
 
 const schema = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(1).max(80).default('Root'),
   storeName: z.string().min(1).max(80),
-  currency: z.enum(['USD', 'NGN', 'EUR', 'GBP', 'KES', 'GHS', 'ZAR', 'INR']).default('USD'),
+  currency: z
+    .string()
+    .trim()
+    .min(1, 'Currency code is required')
+    .max(8)
+    .transform((v) => v.toUpperCase())
+    .default('USD'),
+  currencySymbol: z.string().trim().max(10).optional().default(''),
   demoData: z.coerce.boolean().default(true),
 });
 
@@ -35,7 +43,7 @@ export async function bootstrapManually(raw: unknown): Promise<BootstrapManualRe
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? 'Invalid bootstrap input');
   }
-  const { email, password, name, storeName, currency, demoData } = parsed.data;
+  const { email, password, name, storeName, currency, currencySymbol, demoData } = parsed.data;
 
   const root = await usersRepo.create({
     email,
@@ -51,28 +59,13 @@ export async function bootstrapManually(raw: unknown): Promise<BootstrapManualRe
     slug,
     name: storeName,
     currency,
-    brand: { accent: '#0ea5e9', tagline: '' },
+    brand: { accent: '#0ea5e9', tagline: '', currencySymbol: currencySymbol || undefined },
   });
 
   membershipsRepo.upsert(root.id, store.id, 'ROOT_ADMIN');
 
   if (demoData) {
-    const demo: Array<{
-      sku: string;
-      name: string;
-      costCents: number;
-      sellCents: number;
-      stockQty: number;
-      lowStockThreshold?: number;
-    }> = [
-      { sku: 'RICE-5KG', name: 'Premium Rice 5kg', costCents: 4500, sellCents: 5500, stockQty: 24 },
-      { sku: 'OIL-1L', name: 'Palm Oil 1L', costCents: 1200, sellCents: 1700, stockQty: 50 },
-      { sku: 'BEANS-2KG', name: 'Brown Beans 2kg', costCents: 2200, sellCents: 2900, stockQty: 18, lowStockThreshold: 10 },
-      { sku: 'SUGAR-1KG', name: 'Sugar 1kg', costCents: 900, sellCents: 1300, stockQty: 36 },
-      { sku: 'MILK-1L', name: 'Long-life Milk 1L', costCents: 1100, sellCents: 1500, stockQty: 12, lowStockThreshold: 6 },
-      { sku: 'BREAD-W', name: 'Whole-wheat Bread', costCents: 600, sellCents: 950, stockQty: 8, lowStockThreshold: 10 },
-    ];
-    for (const p of demo) productsRepo.create(store.id, p);
+    for (const p of demoProducts(currency)) productsRepo.create(store.id, p);
   }
 
   return { ok: true, status: 'created', email, storeSlug: slug };
