@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireActiveStore, can } from '@/lib/auth/guards';
+import { isRootUser, requireActiveStore, can } from '@/lib/auth/guards';
 import { Permission, ROLES, ROLE_LABEL, ROLE_DESCRIPTION } from '@/lib/rbac';
 import { membershipsRepo } from '@/lib/db/repositories/memberships.repo';
 import { usersRepo } from '@/lib/db/repositories/users.repo';
@@ -39,7 +39,8 @@ export default async function UsersPage({ searchParams }: PageProps) {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paged = allUsers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const availableRoles = ROLES.filter((r) => !(r === 'ROOT_ADMIN' && !session.isRoot));
+  const actorIsRoot = await isRootUser(session);
+  const availableRoles = ROLES.filter((r) => !(r === 'ROOT_ADMIN' && !actorIsRoot));
 
   return (
     <div>

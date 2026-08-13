@@ -32,7 +32,23 @@ A **resilient, multi-tenant store-management web app** for small shops and their
 
 ### For Everyone
 - **Roles & permissions** enforced at the data layer — costs and margins are stripped from API responses for sales agents.
+- **Store messaging** — General and manager-controlled Announcements channels, threaded replies, reactions, pins, search, unread state, announcement acknowledgments, private manager-to-employee direct messages, visibility-aware in-app toasts, and root-admin global announcements delivered to every store.
+- **Inventory operations** — Inventory staff and managers can record reasoned stock adjustments, receive low-stock/out-of-stock toasts, and review an immutable stock-movement audit trail. Product master-data and pricing changes remain manager-controlled.
+- **RBAC hardening** — The active database membership is authoritative at request time; stale session roles are not trusted for protected layouts, store switching, staff management, branding, or global publication. Membership-targeted mutations are checked against the active store.
 - **Cash-up time series chart** — last 14 days of sales.
+
+### Global announcements
+- Root administrators can publish platform-level announcements to every active store member without copying the announcement into each store's private message history.
+- Global announcements support priority, expiration, optional automatic visibility acknowledgment, notification toasts, append-only audit records, and outbox synchronization.
+- Global announcement management is isolated behind `global-announcement:manage`; store managers cannot publish platform-wide messages.
+
+### Messaging governance
+- Messaging is scoped to the active `storeId` tenant; all reads and mutations re-check active membership server-side.
+- Direct messages use participant-scoped conversations with one stable thread per member pair. Managers/root admins can start them; both participants can reply, while non-participants receive no conversation data.
+- Sales agents and inventory staff can participate in General; viewers are read-only. Managers and root admins can publish announcements, moderate messages, pin operational updates, and view the messaging audit trail.
+- Announcement acknowledgments and message audit events are durable SQLite records and message/ack/audit writes are queued through the existing Mongo outbox. Read watermarks remain local operational state to avoid high-frequency outbox growth.
+- Message governance follows a compliance-safe rule: only the original author may edit, and only until another participant has seen the message. Managers/root admins can moderate visibility (delete/pin) but cannot rewrite another user’s text. Every revision is append-only and synchronized separately, while audit rows are protected from update/delete.
+- Messages are plain text (4,000-character limit) by design. Notifications use authenticated, visibility-aware polling so the app remains offline-first without requiring an external realtime service. Attachments, customer-facing inboxes, typing indicators, and external realtime infrastructure are intentionally outside this store-operations scope.
 
 ---
 
@@ -89,8 +105,8 @@ Permissions are code-defined in `src/lib/rbac.ts`. Roles map to a fixed set of p
 | ROOT_ADMIN   | ✓   | ✓      | ✓       | ✓     | ✓       | ✓      | ✓     |
 | MANAGER      | ✓   | ✓      | ✓       | ✓     | ✓       | ✓      | ✓     |
 | INVENTORY    | —   | —      | —       | —     | —       | —      | —     |
-| SALES_AGENT  | ✓   | —      | —       | —     | —       | —      | —     |
-| VIEWER       | —   | —      | —       | —     | —       | —      | —     |
+| SALES_AGENT  | ✓   | —      | —       | —     | —       | —      | —     || VIEWER      | —   | —        | —       | —     | —       | —      | Read-only messaging |
+
 
 Field-level: **sales agents never see `costCents` or margins** — even in API responses.
 
@@ -119,6 +135,7 @@ cp .env.example .env
 #   ROOT_ADMIN_PASSWORD = StrongPass!123
 #   ROOT_ADMIN_NAME     = Your Name
 #   SESSION_PASSWORD    = (32+ char random — `openssl rand -hex 32`)
+#   PORT                = 3000 (optional; defaults to 3000)
 # Optional:
 #   MONGODB_URI = mongodb+srv://user:pass@cluster.mongodb.net/storepoint
 ```
@@ -164,6 +181,58 @@ npm run pm2:logs      # tail all logs
 npm run pm2:restart   # restart both
 npm run pm2:stop      # stop both
 ```
+
+### Docker
+
+Docker packages the Next.js web server and the offline sync worker from the same production image. SQLite is stored in a named Docker volume so data survives container recreation.
+
+```bash
+cp .env.example .env
+# Edit .env and set SESSION_PASSWORD, ROOT_ADMIN_EMAIL, and ROOT_ADMIN_PASSWORD.
+# Set MONGODB_URI if cloud synchronization is desired; leave it empty for offline mode.
+
+docker compose up --build -d
+```
+
+Open http://localhost:3000. View service logs with:
+
+```bash
+docker compose logs -f web sync-worker
+```
+
+Stop the services without deleting the SQLite volume:
+
+```bash
+docker compose down
+```
+
+To intentionally delete the persisted SQLite data as well:
+
+```bash
+docker compose down -v
+```
+
+### Docker SQLite backups
+
+The backup command uses SQLite's online `.backup` API, which safely includes WAL-backed data while the app is running:
+
+```bash
+npm run docker:backup
+# Optional destination directory:
+npm run docker:backup -- ./backups
+```
+
+Restore only after stopping the stack. The restore command checks SQLite integrity, refuses to run against active services, creates a timestamped rollback backup of the current volume database beside the supplied backup, and preserves the container's runtime ownership:
+
+```bash
+docker compose down
+npm run docker:restore -- ./backups/storepoint-YYYYMMDDTHHMMSSZ.db
+docker compose up -d
+```
+
+A `storepoint-pre-restore-*.db` rollback backup is created in the same directory before replacement. Backups are written to `./backups/`, which is ignored by Git. Store them in protected external storage for production disaster recovery.
+
+For a non-default server port, set `PORT` in `.env` (for example `PORT=8080`); Docker maps and starts the app on that port. For a deployed hostname or custom port, set both `APP_URL` and `ALLOWED_ORIGINS` to the appropriate origin before starting the stack.
 
 ---
 
@@ -297,7 +366,7 @@ data/                         # SQLite files (gitignored)
 - **Multi-currency** with per-store rates.
 - **Purchase orders** for restocking.
 - **Email/WhatsApp exports** for daily summaries.
-- **Audit log UI** (we already log to outbox; just need a viewer).
+- **Audit log UI** beyond the messaging audit preview (broader platform event history).
 - **Customer credit** / layaway tracking.
 - **Automatic on-disk backup** with `sqlite3 .backup` every hour → S3.
 

@@ -1,6 +1,6 @@
 // Products repo (store-scoped).
 import { getDB } from '../sqlite';
-import { nowISO, type Product } from '../../types';
+import { nowISO, type InventoryAudit, type Product } from '../../types';
 import { newId } from '../../ids';
 import { writeTx } from './_tx';
 
@@ -120,7 +120,13 @@ export const productsRepo = {
       if (!cur) return { result: undefined, outbox: [] };
       const next: Product = {
         ...cur,
-        ...patch,
+        sku: patch.sku ?? cur.sku,
+        name: patch.name ?? cur.name,
+        description: patch.description ?? cur.description,
+        costCents: patch.costCents ?? cur.costCents,
+        sellCents: patch.sellCents ?? cur.sellCents,
+        // Stock is intentionally excluded: inventory movements must use adjustStock().
+        lowStockThreshold: patch.lowStockThreshold ?? cur.lowStockThreshold,
         active: patch.active === undefined ? cur.active : patch.active ? 1 : 0,
         updatedAt: nowISO(),
       };
@@ -148,30 +154,63 @@ export const productsRepo = {
   },
 
   /**
-   * Atomically adjust stock by a delta (positive or negative).
-   * Throws if it would go negative.
+   * Atomically adjust stock by a delta and append an immutable, reasoned audit event.
+   * Throws if it would go negative or the reason is missing.
    */
-  adjustStock(storeId: string, id: string, delta: number): Product | undefined {
+  adjustStock(storeId: string, id: string, delta: number, reason: string, actorId: string): Product | undefined {
     return writeTx((d) => {
+      const member = d.prepare<[string, string], { userId: string }>(
+        'SELECT userId FROM memberships WHERE storeId=? AND userId=? AND active=1 AND deletedAt IS NULL',
+      ).get(storeId, actorId);
+      if (!member) throw new Error('User is not an active member of this store.');
       const cur = d
         .prepare<[string, string], Product>(
           'SELECT * FROM products WHERE storeId=? AND id=? AND deletedAt IS NULL',
         )
         .get(storeId, id);
       if (!cur) return { result: undefined, outbox: [] };
+      const cleanReason = reason.trim();
+      if (!cleanReason) throw new Error('A reason is required for every stock adjustment.');
+      if (!Number.isInteger(delta) || delta === 0) throw new Error('Stock adjustment must be a non-zero whole number.');
       const nextQty = cur.stockQty + delta;
       if (nextQty < 0) throw new Error(`Insufficient stock for ${cur.name}`);
-      const next: Product = { ...cur, stockQty: nextQty, updatedAt: nowISO() };
-      d.prepare('UPDATE products SET stockQty=?, updatedAt=? WHERE id=?').run(
-        next.stockQty,
-        next.updatedAt,
-        id,
-      );
+      const now = nowISO();
+      const next: Product = { ...cur, stockQty: nextQty, updatedAt: now };
+      d.prepare('UPDATE products SET stockQty=?, updatedAt=? WHERE id=?').run(next.stockQty, next.updatedAt, id);
+      const audit: InventoryAudit = {
+        id: newId(),
+        storeId,
+        productId: id,
+        actorId,
+        delta,
+        beforeQty: cur.stockQty,
+        afterQty: nextQty,
+        reason: cleanReason,
+        createdAt: now,
+      };
+      d.prepare(
+        `INSERT INTO inventory_audit(id,storeId,productId,actorId,delta,beforeQty,afterQty,reason,createdAt)
+         VALUES(?,?,?,?,?,?,?,?,?)`,
+      ).run(audit.id, audit.storeId, audit.productId, audit.actorId, audit.delta, audit.beforeQty, audit.afterQty, audit.reason, audit.createdAt);
       return {
         result: next,
-        outbox: [{ op: 'upsert', collection: 'Product', docId: id, payload: next }],
+        outbox: [
+          { op: 'upsert', collection: 'Product', docId: id, payload: next },
+          { op: 'upsert', collection: 'InventoryAudit', docId: audit.id, payload: audit },
+        ],
       };
     });
+  },
+
+  inventoryAudit(storeId: string, productId?: string, limit = 100): InventoryAudit[] {
+    const capped = Math.min(Math.max(limit, 1), 500);
+    return productId
+      ? getDB().prepare<[string, string, number], InventoryAudit>(
+          'SELECT * FROM inventory_audit WHERE storeId=? AND productId=? ORDER BY createdAt DESC LIMIT ?',
+        ).all(storeId, productId, capped)
+      : getDB().prepare<[string, number], InventoryAudit>(
+          'SELECT * FROM inventory_audit WHERE storeId=? ORDER BY createdAt DESC LIMIT ?',
+        ).all(storeId, capped);
   },
 
   softDelete(storeId: string, id: string): void {

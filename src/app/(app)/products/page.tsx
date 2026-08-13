@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Boxes } from 'lucide-react';
+import { Boxes, History } from 'lucide-react';
 import { formatMoney, marginPct, getCurrencySymbol } from '@/lib/utils';
 import { QuickAddProductDialog } from './quick-add-dialog';
 import { EditProductDialog } from './edit-product-dialog';
+import { StockAdjustDialog } from './stock-adjust-dialog';
 
 export default async function ProductsPage() {
   const { storeId, role } = await requireActiveStore();
@@ -19,6 +20,8 @@ export default async function ProductsPage() {
   const sym = getCurrencySymbol(store.brandJson);
   const canSeeCost = can(role, Permission.ProductsReadCost);
   const canEdit = can(role, Permission.ProductsWrite);
+  const canAdjust = can(role, Permission.StockAdjust);
+  const recentInventoryAudit = canAdjust ? productsRepo.inventoryAudit(storeId, undefined, 8) : [];
 
   return (
     <div>
@@ -65,7 +68,7 @@ export default async function ProductsPage() {
                   {canSeeCost && <TableHead className="hidden text-right sm:table-cell">Margin</TableHead>}
                   <TableHead className="text-center">Stock</TableHead>
                   <TableHead>Status</TableHead>
-                  {canEdit && <TableHead className="text-right">Actions</TableHead>}
+                  {(canEdit || canAdjust) && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -99,23 +102,26 @@ export default async function ProductsPage() {
                           {p.active ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
-                      {canEdit && (
+                      {(canEdit || canAdjust) && (
                         <TableCell className="text-right">
-                          <EditProductDialog
-                            product={{
-                              id: p.id,
-                              sku: p.sku,
-                              name: p.name,
-                              description: p.description,
-                              costCents: p.costCents,
-                              sellCents: p.sellCents,
-                              stockQty: p.stockQty,
-                              lowStockThreshold: p.lowStockThreshold,
-                              active: p.active === 1,
-                            }}
-                            storeId={storeId}
-                            isManagerPlus={canSeeCost}
-                          />
+                          <div className="flex flex-wrap justify-end gap-2">
+                            {canAdjust && <StockAdjustDialog storeId={storeId} productId={p.id} productName={p.name} currentQty={p.stockQty} />}
+                            {canEdit && <EditProductDialog
+                              product={{
+                                id: p.id,
+                                sku: p.sku,
+                                name: p.name,
+                                description: p.description,
+                                costCents: p.costCents,
+                                sellCents: p.sellCents,
+                                stockQty: p.stockQty,
+                                lowStockThreshold: p.lowStockThreshold,
+                                active: p.active === 1,
+                              }}
+                              storeId={storeId}
+                              isManagerPlus={canSeeCost}
+                            />}
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -126,6 +132,23 @@ export default async function ProductsPage() {
           )}
         </CardContent>
       </Card>
+
+      {canAdjust && recentInventoryAudit.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base"><History className="h-4 w-4 text-primary" /> Recent stock adjustments</CardTitle>
+            <CardDescription>Immutable movement history for this store.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {recentInventoryAudit.map((entry) => {
+                const product = products.find((item) => item.id === entry.productId);
+                return <div key={entry.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"><div className="min-w-0"><div className="font-medium">{product?.name ?? 'Former product'}</div><div className="truncate text-xs text-muted-foreground">{entry.reason} · {new Date(entry.createdAt).toLocaleString()}</div></div><Badge variant={entry.delta > 0 ? 'success' : 'warning'}>{entry.delta > 0 ? '+' : ''}{entry.delta} · {entry.afterQty} total</Badge></div>;
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

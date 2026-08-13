@@ -1,39 +1,33 @@
-// Tiny in-memory throttle for the login route. Good enough for v1.
-// Per-key (email + ip combo): allow 5 attempts per 15-minute window.
-// Resets on server restart — acceptable since the worst case is unbounded
-// attempts for the duration of one server lifetime. For production: move
-// to Redis or DB-backed rate limit.
+// Throttle helpers built on the DB-backed rate limiter. Interfaces are
+// unchanged from the previous in-memory version so call sites need no changes.
 
-type Bucket = { hits: number[] };
+import { take, reset, pruneRateLimits } from './rate-limit';
 
-const buckets = new Map<string, Bucket>();
-const WINDOW_MS = 15 * 60 * 1000;
-const MAX_HITS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_HITS = 5;
+
+const MESSAGE_WINDOW_MS = 60 * 1000;
+const MESSAGE_MAX_HITS = 30;
 
 export function loginThrottle(key: string): { allowed: boolean; retryAfterMs?: number } {
-  const now = Date.now();
-  const cutoff = now - WINDOW_MS;
-  let bucket = buckets.get(key);
-  if (!bucket) {
-    bucket = { hits: [] };
-    buckets.set(key, bucket);
-  }
-  bucket.hits = bucket.hits.filter((t) => t >= cutoff);
-  if (bucket.hits.length >= MAX_HITS) {
-    return {
-      allowed: false,
-      retryAfterMs: Math.max(1000, (bucket.hits[0] + WINDOW_MS) - now),
-    };
-  }
-  bucket.hits.push(now);
-  return { allowed: true };
+  return take(`login:${key}`, { windowMs: LOGIN_WINDOW_MS, maxHits: LOGIN_MAX_HITS });
 }
 
-/** Periodic cleanup so the Map doesn't grow without bound. */
+/** Successful login clears the failure counter for the email+IP key. */
+export function clearLoginThrottle(key: string): void {
+  reset(`login:${key}`);
+}
+
+/** A lightweight guard against accidental or malicious message floods. */
+export function messagingThrottle(key: string): { allowed: boolean; retryAfterMs?: number } {
+  return take(`msg:${key}`, { windowMs: MESSAGE_WINDOW_MS, maxHits: MESSAGE_MAX_HITS });
+}
+
+/** Periodic cleanup so the hits table doesn't grow without bound. */
 setInterval(() => {
-  const cutoff = Date.now() - WINDOW_MS;
-  for (const [k, v] of buckets) {
-    v.hits = v.hits.filter((t) => t >= cutoff);
-    if (v.hits.length === 0) buckets.delete(k);
+  try {
+    pruneRateLimits(Math.max(LOGIN_WINDOW_MS, MESSAGE_WINDOW_MS));
+  } catch {
+    /* DB may not be open yet — the next sweep will catch up. */
   }
-}, WINDOW_MS).unref();
+}, LOGIN_WINDOW_MS).unref();

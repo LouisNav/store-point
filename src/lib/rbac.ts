@@ -22,6 +22,14 @@ export const Permission = {
   ReportsCashup: 'reports:cashup',
   ReportsProfit: 'reports:profit',
   SyncStatus: 'sync:status',
+  MessagingRead: 'messaging:read',
+  MessagingWrite: 'messaging:write',
+  MessagingDirect: 'messaging:direct',
+  MessagingAnnouncement: 'messaging:announcement',
+  MessagingModerate: 'messaging:moderate',
+  MessagingAudit: 'messaging:audit',
+  GlobalAnnouncementManage: 'global-announcement:manage',
+  AuditRead: 'audit:read',
 } as const;
 export type PermissionKey = (typeof Permission)[keyof typeof Permission];
 
@@ -44,12 +52,21 @@ export const ROLE_PERMISSIONS: Record<Role, PermissionKey[]> = {
     Permission.SalesRead,
     Permission.ReportsCashup,
     Permission.ReportsProfit,
+    Permission.MessagingRead,
+    Permission.MessagingWrite,
+    Permission.MessagingDirect,
+    Permission.MessagingAnnouncement,
+    Permission.MessagingModerate,
+    Permission.MessagingAudit,
+    Permission.AuditRead,
   ],
   INVENTORY: [
     Permission.StoreSelect,
     Permission.ProductsRead,
     Permission.StockAdjust,
     Permission.CustomersRead,
+    Permission.MessagingRead,
+    Permission.MessagingWrite,
   ],
   SALES_AGENT: [
     Permission.StoreSelect,
@@ -58,12 +75,15 @@ export const ROLE_PERMISSIONS: Record<Role, PermissionKey[]> = {
     Permission.CustomersWrite,
     Permission.SalesCreate,
     Permission.SalesRead,
+    Permission.MessagingRead,
+    Permission.MessagingWrite,
   ],
   VIEWER: [
     Permission.StoreSelect,
     Permission.ProductsRead,
     Permission.CustomersRead,
     Permission.SalesRead,
+    Permission.MessagingRead,
   ],
 };
 

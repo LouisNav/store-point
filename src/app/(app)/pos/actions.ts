@@ -1,7 +1,7 @@
 'use server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { getSession } from '@/lib/auth/guards';
+import { requireUser } from '@/lib/auth/guards';
 import { membershipsRepo } from '@/lib/db/repositories/memberships.repo';
 import { salesRepo } from '@/lib/db/repositories/sales.repo';
 import { can } from '@/lib/rbac';
@@ -26,7 +26,7 @@ export type CheckoutActionResult =
 
 export async function checkout(_prev: unknown, fd: FormData): Promise<CheckoutActionResult> {
   // ---- Identity / authorization come from the session, never the form ----
-  const session = await getSession();
+  const session = await requireUser();
   if (!session.userId) return { ok: false, error: 'Unauthorized' };
   if (!session.activeStoreId) return { ok: false, error: 'No active store' };
 

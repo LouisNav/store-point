@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireUser } from '@/lib/auth/guards';
+import { isRootUser, requireUser } from '@/lib/auth/guards';
 import { storesRepo, parseBrand } from '@/lib/db/repositories/stores.repo';
 import { membershipsRepo } from '@/lib/db/repositories/memberships.repo';
 import { PageHeader } from '@/components/ui/page-header';
@@ -13,7 +13,7 @@ export default async function StoresPage() {
   const session = await requireUser();
 
   const memberships = membershipsRepo.forUser(session.userId!);
-  const isRoot = session.isRoot === true;
+  const isRoot = await isRootUser(session);
 
   // Single-store non-root users have nothing to switch — redirect to dashboard.
   if (!isRoot && memberships.length === 1) redirect('/dashboard');
@@ -64,7 +64,7 @@ export default async function StoresPage() {
               <CardContent className="space-y-3">
                 {brand.tagline && <p className="text-sm italic text-muted-foreground">{brand.tagline}</p>}
                 <div className="text-sm">
-                  Your role: <span className="font-medium">{m?.role ?? 'No membership'}</span>
+                  Your role: <span className="font-medium">{isRoot ? 'ROOT_ADMIN' : m?.role ?? 'No membership'}</span>
                 </div>
                 {!active && <SwitchStoreButton storeId={s.id} />}
               </CardContent>

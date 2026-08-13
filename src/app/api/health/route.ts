@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth/guards';
+import { getOptionalUser } from '@/lib/auth/guards';
 import { getDB } from '@/lib/db/sqlite';
 import { outboxRepo } from '@/lib/db/repositories/outbox.repo';
 import { getMongo } from '@/lib/db/mongo';
 import { env } from '@/env';
 
 export async function GET() {
-  const s = await getSession();
-  if (!s.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const s = await getOptionalUser();
+  if (!s || !s.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const cfg = env();
   const results: Record<string, { status: 'ok' | 'error' | 'disabled'; detail?: string }> = {};
 

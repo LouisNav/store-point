@@ -1,7 +1,7 @@
 'use server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { getSession } from '@/lib/auth/guards';
+import { requireUser } from '@/lib/auth/guards';
 import { membershipsRepo } from '@/lib/db/repositories/memberships.repo';
 import { customersRepo } from '@/lib/db/repositories/customers.repo';
 import { can } from '@/lib/rbac';
@@ -17,7 +17,7 @@ const inputSchema = z.object({
 export type CustomerActionResult = { ok: true } | { ok: false; error: string };
 
 export async function createCustomer(raw: z.infer<typeof inputSchema>): Promise<CustomerActionResult> {
-  const session = await getSession();
+  const session = await requireUser();
   if (!session.userId) return { ok: false, error: 'Unauthorized' };
   if (!session.activeStoreId) return { ok: false, error: 'No active store' };
 

@@ -5,7 +5,8 @@ import { membershipsRepo } from '@/lib/db/repositories/memberships.repo';
 import { storesRepo } from '@/lib/db/repositories/stores.repo';
 import { verifyPassword } from '@/lib/auth/password';
 import { getSession } from '@/lib/auth/guards';
-import { loginThrottle } from '@/lib/auth/throttle';
+import { loginThrottle, clearLoginThrottle } from '@/lib/auth/throttle';
+import { auditRepo } from '@/lib/db/repositories/audit.repo';
 
 const schema = z.object({
   email: z.string().email(),
@@ -24,7 +25,8 @@ export async function POST(req: Request) {
   // emails against one IP; the email-based throttle prevents targeted
   // email brute force from a rotating IP.
   const ip = (req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown').slice(0, 64);
-  const throttle = loginThrottle(`${email.toLowerCase()}|${ip}`);
+  const throttleKey = `${email.toLowerCase()}|${ip}`;
+  const throttle = loginThrottle(throttleKey);
   if (!throttle.allowed) {
     return NextResponse.json(
       { error: 'Too many attempts. Try again later.' },
@@ -35,13 +37,19 @@ export async function POST(req: Request) {
   const user = usersRepo.byEmail(email);
   // Constant-ish message to avoid email enumeration.
   if (!user) {
+    auditRepo.record({ action: 'auth.login_failure', actorEmail: email.toLowerCase(), metadata: { reason: 'unknown_email' }, ip });
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) {
+    auditRepo.record({ action: 'auth.login_failure', actorId: user.id, actorEmail: user.email, metadata: { reason: 'bad_password' }, ip });
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   }
+
+  // A successful login resets the failure counter and is recorded in the audit log.
+  clearLoginThrottle(throttleKey);
+  auditRepo.record({ action: 'auth.login_success', actorId: user.id, actorEmail: user.email, ip });
 
   const memberships = membershipsRepo.forUser(user.id).map((m) => {
     const s = storesRepo.byId(m.storeId);

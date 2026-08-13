@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth/guards';
+import { isRootUser, requireUser } from '@/lib/auth/guards';
 import { storesRepo } from '@/lib/db/repositories/stores.repo';
 import { membershipsRepo } from '@/lib/db/repositories/memberships.repo';
 
@@ -18,8 +18,8 @@ const schema = z.object({
 });
 
 export async function createStore(_prev: unknown, fd: FormData) {
-  const session = await getSession();
-  if (!session.userId || !session.isRoot) {
+  const session = await requireUser();
+  if (!session.userId || !(await isRootUser(session))) {
     return { error: 'Only the root admin can create stores.' };
   }
   const parsed = schema.safeParse({

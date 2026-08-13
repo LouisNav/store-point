@@ -1,6 +1,6 @@
 'use server';
 import { z } from 'zod';
-import { getSession } from '@/lib/auth/guards';
+import { requireUser } from '@/lib/auth/guards';
 import { storesRepo } from '@/lib/db/repositories/stores.repo';
 import { can } from '@/lib/rbac';
 import { Permission } from '@/lib/rbac';
@@ -20,8 +20,8 @@ export async function saveBrand(
   storeId: string,
   input: z.infer<typeof schema>,
 ) {
-  const session = await getSession();
-  if (!session.userId) return { error: 'Unauthorized' };
+  const session = await requireUser();
+  if (!session.userId || session.activeStoreId !== storeId) return { error: 'Unauthorized' };
   const m = membershipsRepo.activeRole(session.userId, storeId);
   if (!can(m?.role, Permission.StoreBrand)) return { error: 'Not allowed' };
   const parsed = schema.safeParse(input);

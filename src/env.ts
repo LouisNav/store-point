@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 const schema = z.object({
   APP_URL: z.string().url().default('http://localhost:3000'),
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   SESSION_PASSWORD: z
     .string()
     .min(32, 'SESSION_PASSWORD must be at least 32 characters'),

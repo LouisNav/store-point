@@ -46,6 +46,161 @@ const MembershipSchema = new Schema(
   { _id: false, versionKey: false, strict: false },
 );
 
+const ChannelSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    storeId: { type: String, required: true, index: true },
+    slug: { type: String, required: true },
+    name: { type: String, required: true },
+    description: { type: String, default: '' },
+    kind: { type: String, required: true },
+    directKey: { type: String, index: true, sparse: true },
+    createdById: { type: String, required: true },
+    createdAt: ts,
+    updatedAt: ts,
+    deletedAt: String,
+  },
+  { _id: false, versionKey: false, strict: false, indexes: [{ key: { storeId: 1, slug: 1 }, unique: true }] },
+);
+
+const ChannelParticipantSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    channelId: { type: String, required: true, index: true },
+    storeId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    createdAt: ts,
+  },
+  { _id: false, versionKey: false, strict: false },
+);
+
+const MessageSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    storeId: { type: String, required: true, index: true },
+    channelId: { type: String, required: true, index: true },
+    authorId: { type: String, required: true },
+    parentId: String,
+    body: { type: String, required: true },
+    reactionsJson: { type: String, default: '{}' },
+    pinned: { type: Boolean, default: false },
+    requiresAck: { type: Boolean, default: false },
+    editedAt: String,
+    createdAt: ts,
+    updatedAt: ts,
+    deletedAt: String,
+  },
+  { _id: false, versionKey: false, strict: false },
+);
+
+const MessageRevisionSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    storeId: { type: String, required: true, index: true },
+    messageId: { type: String, required: true, index: true },
+    version: { type: Number, required: true },
+    body: { type: String, required: true },
+    revisedById: { type: String, required: true },
+    createdAt: ts,
+  },
+  { _id: false, versionKey: false, strict: false, indexes: [{ key: { messageId: 1, version: 1 }, unique: true }] },
+);
+
+const MessageAcknowledgmentSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    messageId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    acknowledgedAt: ts,
+  },
+  { _id: false, versionKey: false, strict: false },
+);
+
+const MessageAuditSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    storeId: { type: String, required: true, index: true },
+    messageId: String,
+    channelId: String,
+    actorId: { type: String, required: true },
+    action: { type: String, required: true },
+    metadataJson: { type: String, default: '{}' },
+    createdAt: ts,
+  },
+  { _id: false, versionKey: false, strict: false },
+);
+
+const GlobalAnnouncementSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    title: { type: String, required: true },
+    body: { type: String, required: true },
+    priority: { type: String, default: 'normal' },
+    requiresAck: { type: Boolean, default: false },
+    createdById: { type: String, required: true },
+    publishedAt: ts,
+    expiresAt: String,
+    createdAt: ts,
+    updatedAt: ts,
+    deletedAt: String,
+  },
+  { _id: false, versionKey: false, strict: false },
+);
+
+const GlobalAnnouncementAcknowledgmentSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    announcementId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    storeId: { type: String, required: true, index: true },
+    acknowledgedAt: ts,
+  },
+  { _id: false, versionKey: false, strict: false },
+);
+
+const GlobalAnnouncementAuditSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    announcementId: { type: String, index: true },
+    actorId: { type: String, required: true },
+    action: { type: String, required: true },
+    metadataJson: { type: String, default: '{}' },
+    createdAt: ts,
+  },
+  { _id: false, versionKey: false, strict: false },
+);
+
+const AuditEventSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    storeId: { type: String, index: true },
+    actorId: { type: String, index: true },
+    actorEmail: String,
+    action: { type: String, required: true, index: true },
+    entityType: String,
+    entityId: String,
+    metadataJson: { type: String, default: '{}' },
+    ip: String,
+    createdAt: ts,
+  },
+  { _id: false, versionKey: false, strict: false },
+);
+
+const InventoryAuditSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    storeId: { type: String, required: true, index: true },
+    productId: { type: String, required: true, index: true },
+    actorId: { type: String, required: true },
+    delta: { type: Number, required: true },
+    beforeQty: { type: Number, required: true },
+    afterQty: { type: Number, required: true },
+    reason: { type: String, required: true },
+    createdAt: ts,
+  },
+  { _id: false, versionKey: false, strict: false },
+);
+
 const ProductSchema = new Schema(
   {
     _id: { type: String, required: true },
@@ -144,6 +299,17 @@ export const M = {
   User: mongoose.models.User || mongoose.model('User', UserSchema),
   Store: mongoose.models.Store || mongoose.model('Store', StoreSchema),
   Membership: mongoose.models.Membership || mongoose.model('Membership', MembershipSchema),
+  Channel: mongoose.models.Channel || mongoose.model('Channel', ChannelSchema),
+  ChannelParticipant: mongoose.models.ChannelParticipant || mongoose.model('ChannelParticipant', ChannelParticipantSchema),
+  Message: mongoose.models.Message || mongoose.model('Message', MessageSchema),
+  MessageRevision: mongoose.models.MessageRevision || mongoose.model('MessageRevision', MessageRevisionSchema),
+  MessageAcknowledgment: mongoose.models.MessageAcknowledgment || mongoose.model('MessageAcknowledgment', MessageAcknowledgmentSchema),
+  MessageAudit: mongoose.models.MessageAudit || mongoose.model('MessageAudit', MessageAuditSchema),
+  InventoryAudit: mongoose.models.InventoryAudit || mongoose.model('InventoryAudit', InventoryAuditSchema),
+  AuditEvent: mongoose.models.AuditEvent || mongoose.model('AuditEvent', AuditEventSchema),
+  GlobalAnnouncement: mongoose.models.GlobalAnnouncement || mongoose.model('GlobalAnnouncement', GlobalAnnouncementSchema),
+  GlobalAnnouncementAcknowledgment: mongoose.models.GlobalAnnouncementAcknowledgment || mongoose.model('GlobalAnnouncementAcknowledgment', GlobalAnnouncementAcknowledgmentSchema),
+  GlobalAnnouncementAudit: mongoose.models.GlobalAnnouncementAudit || mongoose.model('GlobalAnnouncementAudit', GlobalAnnouncementAuditSchema),
   Product: mongoose.models.Product || mongoose.model('Product', ProductSchema),
   Customer: mongoose.models.Customer || mongoose.model('Customer', CustomerSchema),
   Sale: mongoose.models.Sale || mongoose.model('Sale', SaleSchema),

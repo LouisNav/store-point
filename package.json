@@ -22,7 +22,11 @@
     "seed": "tsx scripts/seed.ts",
     "migrate": "tsx scripts/migrate.ts",
     "reset:dev": "rm -f data/*.db data/*.db-wal data/*.db-shm && tsx scripts/seed.ts",
-    "test:sync": "TEST_SQLITE_PATH=./data/test.db tsx scripts/sync-test.ts"
+    "test:sync": "TEST_SQLITE_PATH=./data/test.db tsx scripts/sync-test.ts",
+    "test:messaging": "tsx scripts/messaging-test.ts",
+    "test:inventory": "tsx scripts/inventory-test.ts",
+    "docker:backup": "bash scripts/docker-backup.sh",
+    "docker:restore": "bash scripts/docker-restore.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

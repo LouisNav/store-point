@@ -151,8 +151,9 @@ export function ProductForm({
       )}
 
       <div>
-        <FormLabel required hint="Units currently on the shelf">Stock quantity</FormLabel>
-        <Input type="number" step="1" min="0" {...register('stockQty')} />
+        <FormLabel required hint={mode === 'edit' ? 'Use Stock adjustment so the movement has a reason and audit record' : 'Units currently on the shelf'}>Stock quantity</FormLabel>
+        <Input type="number" step="1" min="0" readOnly={mode === 'edit'} className={mode === 'edit' ? 'bg-muted/50' : undefined} {...register('stockQty')} />
+        {mode === 'edit' && <p className="mt-1 text-[11px] text-muted-foreground">Stock changes are recorded separately with a reason.</p>}
       </div>
       <div>
         <FormLabel hint="Get alerted on the dashboard when stock drops to or below this">Low-stock alert</FormLabel>

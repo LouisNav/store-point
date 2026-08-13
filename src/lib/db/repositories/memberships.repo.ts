@@ -8,7 +8,7 @@ export const membershipsRepo = {
   forUser(userId: string): Membership[] {
     return getDB()
       .prepare<[string], Membership>(
-        `SELECT * FROM memberships WHERE userId = ? AND deletedAt IS NULL ORDER BY createdAt ASC`,
+        `SELECT * FROM memberships WHERE userId = ? AND active = 1 AND deletedAt IS NULL ORDER BY createdAt ASC`,
       )
       .all(userId);
   },

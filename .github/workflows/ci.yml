@@ -8,9 +8,13 @@ on:
 
 jobs:
   check:
-    name: Typecheck & Build
+    name: Typecheck, Lint & Test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    env:
+      SESSION_PASSWORD: ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci
+      ROOT_ADMIN_EMAIL: ci-admin@example.com
+      ROOT_ADMIN_PASSWORD: ci-password-123
 
     steps:
       - name: Checkout
@@ -22,13 +26,29 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Cache mongodb-memory-server binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-memory-server-${{ runner.os }}
+
       - name: Install dependencies
         run: npm ci
 
       - name: TypeScript typecheck
         run: npx tsc --noEmit
 
+      - name: Lint
+        run: npx eslint src scripts --ext .ts,.tsx
+
+      - name: Messaging smoke test
+        run: npm run test:messaging
+
+      - name: Inventory smoke test
+        run: npm run test:inventory
+
+      - name: Sync round-trip test
+        run: npm run test:sync
+
       - name: Build (no .env needed — APP_URL/ROOT_ADMIN_* have zod defaults)
         run: npm run build
-        env:
-          SESSION_PASSWORD: ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci

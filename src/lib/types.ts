@@ -18,6 +18,136 @@ export const ROLES: Role[] = [
 
 export type PaymentMethod = 'cash' | 'mobile' | 'card' | 'other';
 export type SaleStatus = 'completed' | 'refunded' | 'partial_refund';
+export type ChannelKind = 'general' | 'announcement' | 'direct';
+export type MessageAuditAction = 'created' | 'edited' | 'deleted' | 'reaction_added' | 'reaction_removed' | 'pinned' | 'unpinned' | 'read' | 'acknowledged';
+export type NotificationKind = 'message' | 'announcement' | 'global_announcement' | 'low_stock';
+
+/** Unified, append-only activity log across the platform. */
+export type AuditAction =
+  | 'auth.login_success'
+  | 'auth.login_failure'
+  | 'user.invite'
+  | 'user.role_change'
+  | 'user.suspend'
+  | 'user.reactivate'
+  | 'user.remove'
+  | 'product.create'
+  | 'product.update'
+  | 'product.delete'
+  | 'store.switch'
+  | 'announcement.create';
+
+export interface AuditEvent {
+  id: string;
+  storeId: string | null;
+  actorId: string | null;
+  actorEmail: string | null;
+  action: AuditAction;
+  entityType: string | null;
+  entityId: string | null;
+  metadataJson: string;
+  ip: string | null;
+  createdAt: string;
+}
+export type NotificationPriority = 'normal' | 'high';
+export type GlobalAnnouncementPriority = 'normal' | 'high' | 'critical';
+
+export interface Channel {
+  id: string;
+  storeId: string;
+  slug: string;
+  name: string;
+  description: string;
+  kind: ChannelKind;
+  directKey?: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface Message {
+  id: string;
+  storeId: string;
+  channelId: string;
+  authorId: string;
+  parentId: string | null;
+  body: string;
+  reactions: Record<string, string[]>;
+  pinned: 0 | 1;
+  requiresAck: 0 | 1;
+  editedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface MessageAudit {
+  id: string;
+  storeId: string;
+  messageId: string | null;
+  channelId: string | null;
+  actorId: string;
+  action: MessageAuditAction;
+  metadataJson: string;
+  createdAt: string;
+}
+
+/** Append-only body history retained for compliance and dispute resolution. */
+export interface MessageRevision {
+  id: string;
+  storeId: string;
+  messageId: string;
+  version: number;
+  body: string;
+  revisedById: string;
+  createdAt: string;
+}
+
+export interface MessageSeenState {
+  seen: boolean;
+  seenAt: string | null;
+}
+
+export interface DirectConversation {
+  channel: Channel;
+  partnerId: string;
+  partnerName: string;
+  partnerEmail: string;
+  unread: number;
+  lastMessageBody: string | null;
+  lastMessageAt: string | null;
+}
+
+export interface DirectTarget {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+}
+
+export interface ChannelRead {
+  channelId: string;
+  userId: string;
+  lastReadAt: string;
+  updatedAt: string;
+}
+
+export interface MessageAcknowledgment {
+  messageId: string;
+  userId: string;
+  acknowledgedAt: string;
+}
+
+export interface ChannelUnread {
+  channelId: string;
+  unread: number;
+}
+
+export interface UnreadSummary {
+  total: number;
+  channels: ChannelUnread[];
+}
 
 export interface User {
   id: string;
@@ -58,6 +188,58 @@ export interface Store {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+}
+
+export interface GlobalAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  priority: GlobalAnnouncementPriority;
+  requiresAck: 0 | 1;
+  createdById: string;
+  publishedAt: string;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface GlobalAnnouncementAcknowledgment {
+  announcementId: string;
+  userId: string;
+  storeId: string;
+  acknowledgedAt: string;
+}
+
+export interface GlobalAnnouncementAudit {
+  id: string;
+  announcementId: string | null;
+  actorId: string;
+  action: 'created' | 'acknowledged' | 'deleted';
+  metadataJson: string;
+  createdAt: string;
+}
+
+export interface AppNotification {
+  id: string;
+  kind: NotificationKind;
+  priority: NotificationPriority;
+  title: string;
+  body: string;
+  href: string;
+  createdAt: string;
+}
+
+export interface InventoryAudit {
+  id: string;
+  storeId: string;
+  productId: string;
+  actorId: string;
+  delta: number;
+  beforeQty: number;
+  afterQty: number;
+  reason: string;
+  createdAt: string;
 }
 
 export interface Product {

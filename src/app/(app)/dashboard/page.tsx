@@ -24,7 +24,8 @@ import {
 export default async function DashboardPage() {
   const { storeId, role, session } = await requireActiveStore();
 
-  const productCount = productsRepo.list(storeId).length;
+  const products = productsRepo.list(storeId);
+  const activeProductCount = products.filter((product) => product.active === 1).length;
   const lowStock = productsRepo.lowStock(storeId);
   const recentSales = salesRepo.list(storeId, 5);
   const summary = salesRepo.dailySummary(storeId, new Date());
@@ -89,7 +90,7 @@ export default async function DashboardPage() {
         ) : (
           <Metric
             title="Active products"
-            value={String(productCount - lowStock.length)}
+            value={String(activeProductCount)}
             subtitle="in your store"
             icon={<Boxes className="h-5 w-5" />}
           />

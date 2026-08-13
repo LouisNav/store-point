@@ -1,0 +1,62 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-localhost:3000}
+    image: store-point:latest
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: ${PORT:-3000}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-localhost:3000}
+      SESSION_PASSWORD: ${SESSION_PASSWORD:?Set SESSION_PASSWORD in .env (32+ characters)}
+      ROOT_ADMIN_EMAIL: ${ROOT_ADMIN_EMAIL:?Set ROOT_ADMIN_EMAIL in .env}
+      ROOT_ADMIN_PASSWORD: ${ROOT_ADMIN_PASSWORD:?Set ROOT_ADMIN_PASSWORD in .env}
+      ROOT_ADMIN_NAME: ${ROOT_ADMIN_NAME:-Root}
+      MONGODB_URI: ${MONGODB_URI:-}
+      MONGODB_DB: ${MONGODB_DB:-storepoint}
+      SQLITE_PATH: /app/data/storepoint.db
+      SYNC_INTERVAL_MS: ${SYNC_INTERVAL_MS:-5000}
+      SYNC_BATCH_SIZE: ${SYNC_BATCH_SIZE:-200}
+      SYNC_BACKOFF_MAX_MS: ${SYNC_BACKOFF_MAX_MS:-60000}
+    volumes:
+      - storepoint-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "const port=process.env.PORT||3000; fetch('http://127.0.0.1:'+port+'/login').then((r) => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  sync-worker:
+    image: store-point:latest
+    restart: unless-stopped
+    init: true
+    command: ["npm", "run", "worker"]
+    environment:
+      NODE_ENV: production
+      SESSION_PASSWORD: ${SESSION_PASSWORD:?Set SESSION_PASSWORD in .env (32+ characters)}
+      ROOT_ADMIN_EMAIL: ${ROOT_ADMIN_EMAIL:?Set ROOT_ADMIN_EMAIL in .env}
+      ROOT_ADMIN_PASSWORD: ${ROOT_ADMIN_PASSWORD:?Set ROOT_ADMIN_PASSWORD in .env}
+      ROOT_ADMIN_NAME: ${ROOT_ADMIN_NAME:-Root}
+      MONGODB_URI: ${MONGODB_URI:-}
+      MONGODB_DB: ${MONGODB_DB:-storepoint}
+      SQLITE_PATH: /app/data/storepoint.db
+      SYNC_INTERVAL_MS: ${SYNC_INTERVAL_MS:-5000}
+      SYNC_BATCH_SIZE: ${SYNC_BATCH_SIZE:-200}
+      SYNC_BACKOFF_MAX_MS: ${SYNC_BACKOFF_MAX_MS:-60000}
+    volumes:
+      - storepoint-data:/app/data
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  storepoint-data:

@@ -1,7 +1,7 @@
 'use server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { getSession } from '@/lib/auth/guards';
+import { requireUser } from '@/lib/auth/guards';
 import { usersRepo } from '@/lib/db/repositories/users.repo';
 import { verifyPassword } from '@/lib/auth/password';
 
@@ -13,7 +13,7 @@ const schema = z.object({
 });
 
 export async function updateProfile(input: z.infer<typeof schema>) {
-  const session = await getSession();
+  const session = await requireUser();
   if (!session.userId) return { error: 'Unauthorized' };
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
